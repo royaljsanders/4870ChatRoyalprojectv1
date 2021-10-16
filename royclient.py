@@ -3,9 +3,9 @@
 #Client
 import socket
 
-__HOST =       '127.0.0.1' #loopback
-__SERVER_PORT = 11138
-__MAX_LINE    = 256
+HOST =       '127.0.0.1' #loopback
+SERVER_PORT = 11138
+MAX_LINE    = 256
 
 
 # Written by Royal
@@ -17,13 +17,23 @@ __MAX_LINE    = 256
 # Create a socket.
 # Connect to a server.
 # Send and receive data.
-# closesocket(s);
+# closesocket(s); TODO: do it the hard way?
 
 def main():
     print("Client is starting")
-
-
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as clientsocket:
+    #try:
+        clientsocket.connect((HOST, SERVER_PORT))
+        clientsocket.sendall(b'Hello World! --from Client.')
+        data = clientsocket.recv(1024) #TODO: maxline?
+        print("data", data)
     return 0
+'''
+        except:
+            print('something went wrong')
+            # TODO: better error handling
+'''
+
 
 if __name__ == "__main__":
     main()

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 #Client
 import socket
+import time
 
 HOST =       '127.0.0.1' #loopback
 SERVER_PORT = 11138
@@ -21,12 +22,27 @@ MAX_LINE    = 256
 
 def main():
     print("Client is starting")
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as clientsocket:
     #try:
-        clientsocket.connect((HOST, SERVER_PORT))
-        clientsocket.sendall(b'Hello World! --from Client.')
-        data = clientsocket.recv(1024) #TODO: maxline?
-        print("data", data)
+    clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    clientsocket.connect((HOST, SERVER_PORT))
+    while True:
+        #clientsocket.sendall(b'Test')
+        data = clientsocket.recv(MAX_LINE)
+        print(data)
+
+        if not data:
+            print('.')
+            time.sleep(1) #sleep for 1 second
+            pass
+        else:
+            answer = input()
+            if answer == 'q!':
+                break
+
+            clientsocket.sendall(answer.encode())
+    print("Closing socket...")
+    clientsocket.close()
+    print("Socket closed.")
     return 0
 '''
         except:

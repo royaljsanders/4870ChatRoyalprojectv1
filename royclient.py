@@ -33,8 +33,11 @@ def main():
         if not data:
             print('.')
             time.sleep(1) #sleep for 1 second
+            # TODO recursive check if not data, lost cennection to the server?
+            # print something like "Trying to reconnect... in %d (sec)"
             pass
         else:
+            print(data)
             answer = input()
             if answer == 'q!':
                 break

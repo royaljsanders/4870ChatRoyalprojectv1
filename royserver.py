@@ -90,7 +90,8 @@ def main():
                         if not data:
                             pass
                         else:
-                            print("Messaging: data", data)
+                            #TODO add a username
+                            print("Messaging: ", data)
 
                             # 5send and receive data
                             # TODO: Login, NewUser.

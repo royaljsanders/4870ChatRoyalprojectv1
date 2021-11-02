@@ -41,29 +41,25 @@ MAX_LINE    = 256
 def newuser(messagestr):
 
     # just need to add to file. We assume clients haven't hacked anything
-    #print("Need to add this user, then log in.")
+    print("Need to add this user, then log in.")
     authstr = messagestr.replace(bytes("^NU_", 'utf-8'), bytes('^LI_', 'utf-8'))
     if (authenticate(authstr) != False):
-        #print("Denied. User account already exists.")
-        return True
+        #tell user that wasn't right
+        pass
     else:
         try:
             messagestr = messagestr.replace(bytes("^NU_", 'utf-8'), bytes('', 'utf-8'))
-            #print(messagestr)
+            print(messagestr)
             userbytes, trash, passbytes = messagestr.partition(bytes("^PW_", 'utf-8'))
             externaluser = userbytes.decode()
             externalpasw = passbytes.decode()
 
             f = open("users.txt","a")
             addstr = "(" + externaluser + ", " + externalpasw + ")"
-            #print("addstr", addstr)
+            print("addstr", addstr)
             f.write('\n'+addstr)
             f.close()
-            authbool = authenticate(authstr)
-            if (authbool == True):
-                print('lol tru')
-            if (authbool == False):
-                print('lol nah')
+            return authenticate(authstr)
         except Exception as e:
             print("New error! Nice. \nRoyClient has detected a problem with creating New user.")
             print(e)
@@ -72,7 +68,7 @@ def newuser(messagestr):
 
 def authenticate(messagestr):
     try:
-        #print("messagestr from auth)", messagestr)
+        print("messagestr from auth)", messagestr)
         f = open("users.txt","r")
         filelines = f.readlines()
         #print("Users")
@@ -95,7 +91,7 @@ def authenticate(messagestr):
             #print("_%s.%s_" % (line[0], line[1]))
 
         messagestr = messagestr.replace(bytes("^LI_", 'utf-8'), bytes('', 'utf-8'))
-        #print(messagestr)
+        print(messagestr)
         userbytes, trash, passbytes = messagestr.partition(bytes("^PW_", 'utf-8'))
         # partition the byte string and then convert the parts we want to keep to utf-8
         externaluser = userbytes.decode()
@@ -103,6 +99,7 @@ def authenticate(messagestr):
 
         for row in userlist:
             if (externaluser == row[0] and externalpasw == row[1]):
+                print("User %s signed in" % externaluser)
                 return externaluser
             else:
                 continue
@@ -124,7 +121,7 @@ def main():
 
     try:
         # 1 create an INET, STREAMing socket
-        #print("Server is starting and creating a socket...", end=' ')
+        print("Server is starting and creating a socket...", end=' ')
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         # Very bottom of this page tells us how to deal with socket wait time if an error occurs
@@ -133,18 +130,18 @@ def main():
 
         # 2bind the socket
         # bind the socket to a host, and a port
-        #print("Done.\nBinding...")
+        print("Done.\nBinding...")
         serversocket.bind((__HOST, __SERVER_PORT))
 
                         # 3listen on the socket
-        #print("Listening and accepting connections...")
+        print("Listening and accepting connections...")
         serversocket.listen(__MAX_PENDING)
-        print("My chat room server. Version one.\n")
+
 
         while(True):
             try:
                 # 4 Make new connection.
-                #print("Waiting for client to connect...")
+                print("Waiting for client to connect...")
                 conn, addr = serversocket.accept() # conn is a NEW SOCKET
 
                 # Very bottom of this page tells us how to deal with socket wait time if an error occurs
@@ -154,7 +151,7 @@ def main():
 
                 with conn:
                     # Loop before logging in (Authentication Loop)
-                    #print('Connected by', addr, end='')
+                    print('Connected by', addr, end='')
                     #data = conn.recv(MAX_LINE)
 
                     #intro = b'Hello Client! Welcome to the Echo Chamber.\n'
@@ -165,48 +162,61 @@ def main():
                         pass
                     else:
                         # handle log in / new user commands.
-                        # print(type(data), '\n', data)
+                        print(type(data), '\n', data)
                         if (data.startswith(bytes("^LI_", 'utf-8'))):
                             username = authenticate(data)
                             if(username != False):
-                                #print('External User Authenticated. Letting them into the chat room...')
+                                print('External User Authenticated. Letting them into the chat room...')
+                                # TODO if authenticate passes, then we can send over to messaging area.
                                 # when the user logs out, it will control flow brings us back here to disconnet.
-                                intro = b"login confirmed"
+                                intro = b"Hello Client! Welcome to the Echo Chamber.\nSend your message, or '!q' to quit."
                                 #send 'intro for client' from server
                                 conn.sendall(intro)
-                                #print("User Logged in, waiting on messages now.")
+                                print("User Logged in, waiting on messages now.")
                                 while(True):
                                     clientmsg = conn.recv(MAX_LINE)
                                     if not clientmsg:
-                                        print(username, "logout.")
+                                        print("Lost connection with a client. Accepting new client...")
                                         break
 
                                     else:
-                                        if clientmsg.decode() == 'logout':
+                                        if clientmsg.decode() == '!q':
                                             break
                                         echomsg = username + ": " + clientmsg.decode()
                                         print(echomsg)
                                         conn.sendall(bytes(echomsg, 'utf-8'))
+
                             else:
-                                intro = b"Denied. User name or password incorrect."
-                                #send 'intro for client' from server
-                                conn.sendall(intro)
-                                continue
+                                print('External User Incorrect Info. Tell them to try again.')
+                                # TODO reject the connection politely
+
                         elif (data.startswith(bytes("^NU_", 'utf-8'))):
                             username = newuser(data)
                             if(username != False):
-                                #print('New User Authenticated. Letting them into the chat room...')
-                                intro = b"Denied. User account already exists."
+                                print('New User Authenticated. Letting them into the chat room...')
+                                intro = b"Hello Client! Welcome to the Echo Chamber. \nSend your message, or '!q' to quit."
                                 #send 'intro for client' from server
                                 conn.sendall(intro)
+                                print("User Logged in, waiting on messages now.")
+                                while(True):
+                                    clientmsg = conn.recv(MAX_LINE)
+                                    if not clientmsg:
+                                        print("Lost connection with a client. Accepting new client...")
+                                        break
+
+                                    else:
+                                        if clientmsg.decode() == '!q':
+                                            break
+                                        echomsg = username + ": " + clientmsg.decode()
+                                        print(echomsg)
+                                        conn.sendall(bytes(echomsg, 'utf-8'))
 
                             else:
-                                intro = b"New user account created. Please login."
-                                #send 'intro for client' from server
-                                conn.sendall(intro)
-                                print("New user account created.")
-                                continue
-
+                                print('External User Incorrect Info. Tell them to try again.')
+                                # TODO reject the connection politely
+                        else:
+                            # TODO don't accept or try again
+                            break #?
 
             except BrokenPipeError:
                 print("Lost connection with :", addr)

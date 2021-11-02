@@ -29,59 +29,88 @@ MAX_LINE    = 256
 # ^LI_ log in
 # ^LO_ log out
 # ^MS_ message
-def newuser(user, pasw):
+
+#def newuser(user, pasw):
+    #try:
+        #clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #clientsocket.connect((HOST, SERVER_PORT))
+
+        #command = "^NU_" + user + "^PW_" + pasw
+        #clientsocket.sendall(bytes(command, 'utf-8'))
+        #print("Request sent, waiting")
+        #reply = clientsocket.recv(MAX_LINE)
+        #print(reply.decode())
+
+        #same sending message loop as login, our socket is in local function scope so let's keep using it.
+        #while(True):
+            #if not reply:
+                #clientsocket.close()
+                #return False
+
+            #selectstr = input()
+            #select = selectstr.split()
+            #print(type(select), select)
+            #if New User
+            #if (select[0] == 'newuser'):
+                #print("Denied. Logout first to create a new user.")
+            #logging in
+            #elif (select[0] == 'login'):
+                #print("Denied. Already logged in.")
+
+            #elif (select[0] == 'send'):
+                #select = selectstr.split(maxsplit=1)
+                #print(type(select[1]), select[1])
+                #clientsocket.sendall(select[1].encode())
+
+                #reply = clientsocket.recv(MAX_LINE)
+                #print(reply.decode())
+                #continue
+
+            #elif (select[0] == 'logout'):
+                #print("Closing socket...")
+                #clientsocket.close()
+                #print("Socket closed.")
+                #return False
+
+            #else:
+                #print("Unrecognized command.")
+                #continue
+
+        #print("Closing socket...")
+        #clientsocket.close()
+        #print("Socket closed.")
+    #except KeyboardInterrupt:
+        #print("KeyboardInterrupt detected. Leaving chatroom.")
+        #print("Closing socket...")
+        #clientsocket.close()
+        #print("Socket closed.")
+    #except ConnectionRefusedError:
+        #print("Server is not available right now.")
+        #clientsocket.close()
+    #except Exception as e:
+        #print("New error! Nice. \nRoyClient has detected a problem with creating New user.")
+        #clientsocket.close()
+        #print(e)
+        #traceback.print_exc()
+
+    #return False # if can connect
+
+def login(user, pasw, newuser=False):
     try:
         clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         clientsocket.connect((HOST, SERVER_PORT))
-        #
-        command = "^NU_" + user + "^PW_" + pasw
+        if (newuser == True):
+            command = "^NU_" + user + "^PW_" + pasw
+        else:
+            command = "^LI_" + user + "^PW_" + pasw
         clientsocket.sendall(bytes(command, 'utf-8'))
-        print("Request sent, waiting")
+        #print("User Logged in, waiting...")
         reply = clientsocket.recv(MAX_LINE)
         print(reply.decode())
-
-        # same sending message loop as login, our socket is in local function scope so let's keep using it.
-        while(True):
-            if not reply:
-                clientsocket.close()
-                return False
-
-            # probably prepend with the command: login, newuser, message, logout
-            message = input("Send: ")
-            clientsocket.sendall(message.encode())
-
-            reply = clientsocket.recv(MAX_LINE)
-            print(reply.decode())
-
-        print("Closing socket...")
-        clientsocket.close()
-        print("Socket closed.")
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt detected. Leaving chatroom.")
-        print("Closing socket...")
-        clientsocket.close()
-        print("Socket closed.")
-    except ConnectionRefusedError:
-        print("Server is not available right now.")
-        clientsocket.close()
-    except Exception as e:
-        print("New error! Nice. \nRoyClient has detected a problem with creating New user.")
-        clientsocket.close()
-        print(e)
-        traceback.print_exc()
-
-    return False # if can connect
-
-def login(user, pasw):
-    try:
-        clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        clientsocket.connect((HOST, SERVER_PORT))
-        #
-        command = "^LI_" + user + "^PW_" + pasw
-        clientsocket.sendall(bytes(command, 'utf-8'))
-        print("User Logged in, waiting...")
-        reply = clientsocket.recv(MAX_LINE)
-        print(reply.decode())
+        if (newuser == True):
+            time.sleep(1)
+            print("returning to main")
+            return False
 
         # This is the loop of sending messages
         while(True):
@@ -89,16 +118,43 @@ def login(user, pasw):
                 clientsocket.close()
                 return False
 
-            # probably prepend with the command: login, newuser, message, logout
-            message = input("Send: ")
-            clientsocket.sendall(message.encode())
 
-            reply = clientsocket.recv(MAX_LINE)
-            print(reply.decode())
+            selectstr = input()
+            select = selectstr.split()
+            #print(type(select), select)
+            # if New User
+            if (select[0] == 'newuser'):
+                print("Denied. Logout first to create a new user.")
+                # logging in
 
-        print("Closing socket...")
+            elif (select[0] == 'login' and newuser == False):
+                print("Denied. Already logged in.")
+            elif (select[0] == 'login' and newuser == True):
+                print("Denied. Already new userd in.")
+
+            elif (select[0] == 'send'):
+                select = selectstr.split(maxsplit=1)
+                #print(type(select[1]), select[1])
+                clientsocket.sendall(select[1].encode())
+
+                reply = clientsocket.recv(MAX_LINE)
+                print(reply.decode())
+                continue
+
+            elif (select[0] == 'logout'):
+                #print("Closing socket...")
+                clientsocket.close()
+                #print("Socket closed.")
+                return False
+
+            else:
+                print("Unrecognized command.")
+                continue
+
+
+        #print("Closing socket...")
         clientsocket.close()
-        print("Socket closed.")
+        #print("Socket closed.")
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected. Shutting down.")
         print("Closing socket...")
@@ -106,58 +162,62 @@ def login(user, pasw):
         print("Socket closed.")
     except ConnectionRefusedError:
         print("Server is not available right now.")
+    except IndexError:
+        print("Denied. Incorrect command usage.")
     except Exception as e:
         print("New error! Nice. \nRoyClient has detected a problem with Logging in")
         print(e)
         traceback.print_exc()
 
-    return False # if can connect
+    return False # if cannot connect
 
 def main():
-    print("Client is starting")
+    print("My chat room client. Version One.\n")
     while(True):
         try:
-            select = input("Do you want to create a New User (N/n), Log in (L/l), or Quit (Q/q)?: ")
+            selectstr = input()
+            select = selectstr.split()
+            #print(type(select), select)
             # if New User
-            if (select == 'N') or (select == 'n'):
-                user = input("Please enter a username between 3 and 32 characters: ")
+            if (select[0] == 'newuser'):
+                user = select[1]
+                pasw = select[2]
                 # The length of the UserID should be between 3 and 32 characters,
                 if (len(user) < 3 or len(user) > 32):
-                    print("The Username must be between 3 and 32 characters.")
+                    print("Denied. The Username must be between 3 and 32 characters.")
                     continue
-                pasw = input("Please enter a password between 4 and 8 characters: ")
+
                 # The length of the UserID should be between 3 and 32 characters,
                 if (len(pasw) < 4 or len(pasw) > 8):
-                    print("The Username must be between 3 and 32 characters.")
+                    print("Denied. The Username must be between 3 and 32 characters.")
                     continue
-                if (newuser(user, pasw)):
-                    print("Invoked ^NU_")
+                if (login(user, pasw, newuser=True) == False):
+                    continue
 
             # logging in
-            elif (select == 'L') or (select == 'l'):
-                user = input("Username: ")
+            elif (select[0] == 'login'):
+                user = select[1]
                 # The length of the UserID should be between 3 and 32 characters,
-                pasw = input("Password: ")
+                pasw = select[2]
 
-                if (login(user, pasw)):
-                    # can only call the message function if logged in.
-                    print("login returned true")
-                    break
-                else:
-                    print("Not logged in. This might mean you told the server you wanted to quit.\n You can try logging in again if you like." )
-                    continue
-                # send to server and check, see if log in.
-                # if logged in, call the logged in function. (to prevent automatic anon logins)
-                # if not able to log in, try the loop again
+                if (login(user, pasw) == False):
+                    # logout invoked
+                    return
 
-            elif (select == 'Q') or (select == 'q'):
-                # quit
+
+            elif (select[0] == 'send'):
+                print("Denied. Please login first.")
+                continue
+
+            elif (select[0] == 'logout'):
+                # just straight up closing.
                 return
 
             else:
-                print("Unrecognized command. Try again, or use (Q/q) to quit.")
+                print("Unrecognized command.")
                 continue
-
+        except IndexError:
+            print("Denied. Incorrect command usage.")
         except ConnectionRefusedError:
             print("Server is not available right now.")
             continue

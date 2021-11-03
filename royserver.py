@@ -8,6 +8,7 @@ https://stackoverflow.com/a/50997965
 
 for v2:
 https://www.geeksforgeeks.org/socket-programming-multi-threading-python/
+https://docs.python.org/3/library/queue.html
 
 Royal Sanders, 11/1, This is the server program that implements basic socket API usage.
 Right now, the server allows 1 connection at a time.
@@ -15,10 +16,17 @@ Right now, the server allows 1 connection at a time.
 import socket
 import traceback
 import string
-from _thread import *
 import threading
+import queue
 
-print_lock = threading.Lock()
+# I plan on putting messages on the queue.
+# each message will be a tuple ( <userid>, "messagestr")
+# it is up to each client thread to pull from the queue and see if it's meant for them
+# if all, we'll do the easier and sendall. that way, the queue will be only used for private messages.
+private_q = queue.Queue()
+
+usershere = []
+publicmsg = []
 
 __HOST =       '127.0.0.1' #loopback
 __SERVER_PORT = 11138
@@ -38,12 +46,127 @@ MAXCLIENTS = 3
 # 3listen on the socket
 # 4while 1 accept connections {
     # 5send and receive data
-# } 6close socket (which is handled by the with statement) TODO: do it the hard way?
+# } 6close socket (which is handled by the with statement)
 
 # ^NU_ new user
 # ^LI_ log in
 # ^LO_ log out
 # ^MS_ message
+
+
+
+def handleclient(conn, addr):
+    readcount = 0 # will be used to find where we are in the publicmsg list
+    # so we can print any messages on the publicmsg list that we haven't gotten to yet
+    with conn: #loop talking to a client.
+        while(True): # any time we break out of this loop, we're ending the client connection
+            #print('Connected by', addr, end='')
+            data = conn.recv(MAX_LINE)
+
+
+            if not data:
+                break
+            else:
+                # handle log in / new user commands.
+                # print(type(data), '\n', data)
+                if (data.startswith(bytes("^LI_", 'utf-8'))):
+                    username = authenticate(data)
+                    #print("authenticate returned", username)
+                    if(username != False):
+                        print(username, "login.")
+                        usershere.append(username)
+                        # when the user logs out, it will control flow brings us back here to disconnet.
+                        intro = b"login confirmed"
+                        #send 'intro for client' from server
+                        conn.sendall(intro)
+                        #print("User Logged in, waiting on messages now.")
+                        while(True):
+                            clientmsg = conn.recv(MAX_LINE)
+                            # TODO: somewhere, we have to check the queue for messages.
+                            # cheap, but I can deque to look at them and put them back if they aren't for me.
+                            #why not here? I can set up sendmsg here with any private messages that have shown up for this client, then append other things I need to right before i send it.
+                            sendmsg = ''
+                            while(private_q.empty() == False):
+                                for_me = private_q.get()
+                                if (for_me[0] == username):
+                                    sendmsg += for_me[1] +'\n'
+                                    print("for me",for_me[1])
+
+                            if not clientmsg:
+                                print(username, "logout.")
+                                break
+                            elif (clientmsg.startswith(bytes("^WH_", 'utf-8'))):
+                                # who is a list, get the items from the list and concat into string.
+                                sendmsg += ', '.join(usershere)
+                                # send the string
+                                print(sendmsg)
+                                conn.sendall(sendmsg.encode())
+                            else:
+                                if clientmsg.decode() == 'logout':
+                                    break
+                                while(len(publicmsg) > readcount):
+                                    print("checking publicmsg at ", readcount, publicmsg[readcount])
+                                    sendmsg += publicmsg[readcount]
+                                    readcount += 1
+                                try:
+                                    # here we are in the chatroom
+                                    msg = clientmsg.decode()
+                                    print("clientmsg.decode()",msg)
+                                    msg = msg.split(maxsplit=1)
+                                    print("msg.split()",msg)
+
+                                    if(msg[0] == 'all'):
+                                        # send to everyone by putting it on the publicmsg list
+                                        messageall = username + ": " + msg[1]+ '\n'
+                                        publicmsg.append(messageall)
+                                        print("added to public message list")
+                                        readcount += 1
+                                        # print any messages on the publicmsg list that we haven't gotten to yet
+
+
+                                    elif(msg[0] in usershere and len(msg) > 1):
+                                        thistuple = (msg[0], username + ": " + msg[1])
+                                        private_q.put(thistuple)
+                                        print(private_q.queue)
+
+
+                                    else:
+                                        # tell client we couldn't figure it out
+                                        conn.sendall(b"Incorrect command usage.")
+                                        continue
+
+                                except IndexError as e:
+                                    # let the client know the recipient couldn't be parsed
+                                    print(e)
+                                    pass
+                                sendmsg += username + ": " + msg[1]
+                                print("sending [", sendmsg)
+                                conn.sendall(bytes(sendmsg, 'utf-8'))
+                    else:
+                        intro = b"Denied. User name or password incorrect."
+                        conn.sendall(intro)
+                        break
+
+                elif (data.startswith(bytes("^NU_", 'utf-8'))):
+                    newuserresult = newuser(data)
+                    #print("Could make a new user?: ", username)
+                    if(newuserresult == False): # False means there is a username already
+                        intro = b"Denied. User account already exists."
+                        conn.sendall(intro)
+                        break
+
+                    else: # so newuser returned True
+                        intro = b"New user account created. Please login."
+                        conn.sendall(intro)
+                        print("New user account created.")
+                        break
+
+
+        # closing the socket connected to the client.
+        #print("Closing socket...")
+        usershere.remove(username)
+        conn.close()
+
 
 # should return True if it was able to make a new user, False if it can't.
 def newuser(messagestr):
@@ -161,7 +284,7 @@ def main():
                         # 3listen on the socket
         #print("Listening and accepting connections...")
         serversocket.listen(__MAX_PENDING)
-        print("My chat room server. Version one.\n")
+        print("My chat room server. Version two.\n")
 
         while(True): # look for new connections
             try:
@@ -172,60 +295,9 @@ def main():
                 # Very bottom of this page tells us how to deal with socket wait time if an error occurs
                 # https://docs.python.org/3/library/socket.html
                 #conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                # also trying outside of loop
 
-                with conn: #loop talking to a client.
-                    while(True): # any time we break out of this loop, we're ending the client connection
-                        #print('Connected by', addr, end='')
-                        data = conn.recv(MAX_LINE)
-                        if not data:
-                            break
-                        else:
-                            # handle log in / new user commands.
-                            # print(type(data), '\n', data)
-                            if (data.startswith(bytes("^LI_", 'utf-8'))):
-                                username = authenticate(data)
-                                #print("authenticate returned", username)
-                                if(username != False):
-                                    print(username, "login.")
-                                    # when the user logs out, it will control flow brings us back here to disconnet.
-                                    intro = b"login confirmed"
-                                    #send 'intro for client' from server
-                                    conn.sendall(intro)
-                                    #print("User Logged in, waiting on messages now.")
-                                    while(True):
-                                        clientmsg = conn.recv(MAX_LINE)
-                                        if not clientmsg:
-                                            print(username, "logout.")
-                                            break
-
-                                        else:
-                                            if clientmsg.decode() == 'logout':
-                                                break
-                                            echomsg = username + ": " + clientmsg.decode()
-                                            print(echomsg)
-                                            conn.sendall(bytes(echomsg, 'utf-8'))
-                                else:
-                                    intro = b"Denied. User name or password incorrect."
-                                    conn.sendall(intro)
-                                    break
-
-                            elif (data.startswith(bytes("^NU_", 'utf-8'))):
-                                newuserresult = newuser(data)
-                                #print("Could make a new user?: ", username)
-                                if(newuserresult == False): # False means there is a username already
-                                    intro = b"Denied. User account already exists."
-                                    conn.sendall(intro)
-                                    break
-
-                                else: # so newuser returned True
-                                    intro = b"New user account created. Please login."
-                                    conn.sendall(intro)
-                                    print("New user account created.")
-                                    break
-                    # closing the socket connected to the client.
-                    #print("Closing socket...")
-                    conn.close()
+                # https://stackoverflow.com/questions/23828264/how-to-make-a-simple-multithreaded-socket-server-in-python-that-remembers-client
+                threading.Thread(target = handleclient,args = (conn, addr)).start()
 
             except BrokenPipeError:
                 print("Lost connection with :", addr)

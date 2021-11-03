@@ -10,7 +10,7 @@ HOST =       '127.0.0.1' #loopback
 SERVER_PORT = 11138
 MAX_LINE    = 256
 
-# TODO: add send __ message. select[1] is __, and is the username we want to send to.
+# add send __ message. select[1] is __, and is the username we want to send to.
 # from the client, I think it's exactly the same in this implementation of the client.
 # only the server needs to parse the username part. So I shouldn't have to change anything here?
 
@@ -33,6 +33,7 @@ MAX_LINE    = 256
 # ^LI_ log in
 # ^LO_ log out
 # ^MS_ message
+# ^WH_ who
 
 #def newuser(user, pasw):
     #try:
@@ -145,7 +146,13 @@ def login(user, pasw, newuser=False):
             if (select[0] == 'newuser'):
                 print("Denied. Logout first to create a new user.")
                 # logging in
+            elif (select[0] == 'who'):
+                #print(type(select[1]), select[1])
+                clientsocket.sendall("^WH_".encode())
 
+                reply = clientsocket.recv(MAX_LINE)
+                print(reply.decode())
+                continue
             elif (select[0] == 'login' and newuser == False):
                 print("Denied. Already logged in.")
             elif (select[0] == 'login' and newuser == True):
@@ -163,7 +170,7 @@ def login(user, pasw, newuser=False):
             elif (select[0] == 'logout'):
                 #print("Closing socket...")
                 clientsocket.close()
-                print("You left the chat room.")
+                print("You left the chat room. You can log in again or type 'logout' again to close the program.")
                 return False
 
             else:
@@ -192,7 +199,7 @@ def login(user, pasw, newuser=False):
     return False # if cannot connect
 
 def main():
-    print("My chat room client. Version One.\n")
+    print("My chat room client. Version two.\n")
     while(True):
         try:
             selectstr = input()
@@ -229,7 +236,7 @@ def main():
                     continue
 
 
-            elif (select[0] == 'send'):
+            elif (select[0] == 'send' or select[0] == 'who'):
                 print("Denied. Please login first.")
                 continue
 

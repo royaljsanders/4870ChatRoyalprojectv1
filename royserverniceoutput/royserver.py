@@ -6,25 +6,17 @@ https://realpython.com/python-sockets/
 https://docs.python.org/3/library/socket.html#socket-objects
 https://stackoverflow.com/a/50997965
 
-for v2:
-https://www.geeksforgeeks.org/socket-programming-multi-threading-python/
-
 Royal Sanders, 11/1, This is the server program that implements basic socket API usage.
 Right now, the server allows 1 connection at a time.
 """
 import socket
 import traceback
 import string
-from _thread import *
-import threading
-
-print_lock = threading.Lock()
 
 __HOST =       '127.0.0.1' #loopback
 __SERVER_PORT = 11138
 __MAX_PENDING = 5
 MAX_LINE    = 256
-MAXCLIENTS = 3
 
 # Written by Royal
 # adapted from skeleton.c and online:
@@ -45,13 +37,16 @@ MAXCLIENTS = 3
 # ^LO_ log out
 # ^MS_ message
 
-# returns True if login data corresponds to a user in our file.
+
 def newuser(messagestr):
 
     # just need to add to file. We assume clients haven't hacked anything
     #print("Need to add this user, then log in.")
     authstr = messagestr.replace(bytes("^NU_", 'utf-8'), bytes('^LI_', 'utf-8'))
-    if (authenticate(authstr) != False):
+
+    # TODO: need to change this so that same usernames aren't allowed
+    if (authenticate(authstr, new = True) != False):
+        #print("Denied. User account already exists.")
         return True
     else:
         try:
@@ -66,18 +61,27 @@ def newuser(messagestr):
             #print("addstr", addstr)
             f.write('\n'+addstr)
             f.close()
+
+            #why was I using this?
             authbool = authenticate(authstr)
+            print(type(authbool), authbool)
             if (authbool == True):
-                #print('lol tru')
+                print('lol tru')
             if (authbool == False):
-                #print('lol nah')
+                print('lol nah')
+
         except Exception as e:
             print("New error! Nice. \nRoyClient has detected a problem with creating New user.")
             print(e)
             traceback.print_exc()
     return False
 
-def authenticate(messagestr):
+# returns the username if login data corresponds to a user in our file.
+# returns False if there is not a matching username & password in the file.
+# use new=True if you're trying to check if we can make the new user.
+# returns True if there is a matching username in the database (if new users flag is used)
+# returns False if there is not a matching username in the database (if new users flag is used)
+def authenticate(messagestr, new = False):
     try:
         #print("messagestr from auth)", messagestr)
         f = open("users.txt","r")
@@ -108,11 +112,18 @@ def authenticate(messagestr):
         externaluser = userbytes.decode()
         externalpasw = passbytes.decode()
 
-        for row in userlist:
-            if (externaluser == row[0] and externalpasw == row[1]):
-                return externaluser
-            else:
-                continue
+        if (new == False):
+            for row in userlist:
+                if (externaluser == row[0] and externalpasw == row[1]):
+                    return externaluser
+                else:
+                    continue
+        if (new == True):
+            for row in userlist:
+                if (externaluser == row[0]):
+                    return True
+                else:
+                    continue
     except IndexError as i:
         print(i)
         print("There is likely a problem with the users.txt file.")
